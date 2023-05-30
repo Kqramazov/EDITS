@@ -15,12 +15,14 @@ class EDITS(nn.Module):
         self.fc = nn.Linear(nfeat * (layer_threshold + 1), 1)
         self.lr = args.lr
         self.optimizer_feature_l1 = PGD(self.x_debaising.parameters(),
-                        proxs=[prox_operators.prox_l1],
-                        lr=self.lr, alphas=[5e-6])
+                                        proxs=[prox_operators.prox_l1],
+                                        lr=self.lr, alphas=[5e-6])
         self.dropout = nn.Dropout(dropout)
         G_params = list(self.x_debaising.parameters())
-        self.optimizer_G = torch.optim.RMSprop(G_params, lr=self.lr, eps=1e-04, weight_decay=args.weight_decay)
-        self.optimizer_A = torch.optim.RMSprop(self.fc.parameters(), lr=self.lr, eps=1e-04, weight_decay=args.weight_decay)
+        self.optimizer_G = torch.optim.RMSprop(
+            G_params, lr=self.lr, eps=1e-04, weight_decay=args.weight_decay)
+        self.optimizer_A = torch.optim.RMSprop(
+            self.fc.parameters(), lr=self.lr, eps=1e-04, weight_decay=args.weight_decay)
 
     def propagation_cat_new_filter(self, X_de, A_norm, layer_threshold):
         A_norm = A_norm.half()
@@ -34,7 +36,8 @@ class EDITS(nn.Module):
     def forward(self, A, X):
         X_de = self.x_debaising(X)
         adj_new = self.adj_renew()
-        agg_con = self.propagation_cat_new_filter(X_de.half(), adj_new.half(), layer_threshold=self.layer_threshold).half()  # A_de or A
+        agg_con = self.propagation_cat_new_filter(X_de.half(), adj_new.half(
+        ), layer_threshold=self.layer_threshold).half()  # A_de or A
         D_pre = self.fc(agg_con)
         D_pre = self.dropout(D_pre)
         return adj_new, X_de, D_pre, D_pre, agg_con
@@ -55,9 +58,12 @@ class EDITS(nn.Module):
         if epoch == 0:
             self.adj_renew.fit(adj, self.lr)
 
-        _, X_debiased, predictor_sens, show, agg_con = self.forward(adj, features)
-        positive_eles = torch.masked_select(predictor_sens[idx_train].squeeze(), sens[idx_train] > 0)
-        negative_eles = torch.masked_select(predictor_sens[idx_train].squeeze(), sens[idx_train] <= 0)
+        _, X_debiased, predictor_sens, show, agg_con = self.forward(
+            adj, features)
+        positive_eles = torch.masked_select(
+            predictor_sens[idx_train].squeeze(), sens[idx_train] > 0)
+        negative_eles = torch.masked_select(
+            predictor_sens[idx_train].squeeze(), sens[idx_train] <= 0)
         adv_loss = - (torch.mean(positive_eles) - torch.mean(negative_eles))
         # loss_train = 5e-2 * (X_debiased - features).norm(2) + 0.1 * adv_loss  # credit
         loss_train = 3e-2 * (X_debiased - features).norm(2) + adv_loss  # bail
@@ -70,10 +76,13 @@ class EDITS(nn.Module):
 
         # optimize structural debiasing module
         # *************************  structural debiasing  *************************
-        _, X_debiased, predictor_sens, show, agg_con = self.forward(adj, features)
+        _, X_debiased, predictor_sens, show, agg_con = self.forward(
+            adj, features)
 
-        positive_eles = torch.masked_select(predictor_sens[idx_train].squeeze(), sens[idx_train] > 0)
-        negative_eles = torch.masked_select(predictor_sens[idx_train].squeeze(), sens[idx_train] <= 0)
+        positive_eles = torch.masked_select(
+            predictor_sens[idx_train].squeeze(), sens[idx_train] > 0)
+        negative_eles = torch.masked_select(
+            predictor_sens[idx_train].squeeze(), sens[idx_train] <= 0)
 
         adv_loss = - (torch.mean(positive_eles) - torch.mean(negative_eles))
         self.adj_renew.train_adj(X_debiased, adj, adv_loss, epoch, lr)
@@ -82,8 +91,10 @@ class EDITS(nn.Module):
         param = self.state_dict()
         zero = torch.zeros_like(param["x_debaising.s"])
         one = torch.ones_like(param["x_debaising.s"])
-        param["x_debaising.s"] = torch.where(param["x_debaising.s"] > 1, one, param["x_debaising.s"])
-        param["x_debaising.s"] = torch.where(param["x_debaising.s"] < 0, zero, param["x_debaising.s"])
+        param["x_debaising.s"] = torch.where(
+            param["x_debaising.s"] > 1, one, param["x_debaising.s"])
+        param["x_debaising.s"] = torch.where(
+            param["x_debaising.s"] < 0, zero, param["x_debaising.s"])
         # param["x_debaising.s"] = torch.clamp(param["x_debaising.s"], min=0, max=1)
         self.load_state_dict(param)
 
@@ -92,10 +103,13 @@ class EDITS(nn.Module):
         for i in range(8):
             self.fc.requires_grad_(True)
             self.optimizer_A.zero_grad()
-            _, X_debiased, predictor_sens, show, agg_con = self.forward(adj, features)
+            _, X_debiased, predictor_sens, show, agg_con = self.forward(
+                adj, features)
 
-            positive_eles = torch.masked_select(predictor_sens[idx_train].squeeze(), sens[idx_train] > 0)
-            negative_eles = torch.masked_select(predictor_sens[idx_train].squeeze(), sens[idx_train] <= 0)
+            positive_eles = torch.masked_select(
+                predictor_sens[idx_train].squeeze(), sens[idx_train] > 0)
+            negative_eles = torch.masked_select(
+                predictor_sens[idx_train].squeeze(), sens[idx_train] <= 0)
 
             loss_train = torch.mean(positive_eles) - torch.mean(negative_eles)
             loss_train.backward()
@@ -112,7 +126,8 @@ class EstimateAdj(nn.Module):
     def __init__(self, adj, symmetric=False, device='cpu'):
         super(EstimateAdj, self).__init__()
         n = len(adj)
-        self.estimated_adj = nn.Parameter(torch.FloatTensor(n, n), requires_grad=True)
+        self.estimated_adj = nn.Parameter(
+            torch.FloatTensor(n, n), requires_grad=True)
         self._init_estimation(adj)
         self.symmetric = symmetric
         self.device = device
@@ -126,6 +141,7 @@ class EstimateAdj(nn.Module):
     def forward(self):
         return self.estimated_adj
 
+
 class Adj_renew(nn.Module):
 
     def __init__(self, node_num, nfeat, nfeat_out, adj_lambda):
@@ -138,17 +154,18 @@ class Adj_renew(nn.Module):
         self.reset_parameters()
 
     def fit(self, adj, lr):
-        estimator = EstimateAdj(adj, symmetric=False, device='cuda').to('cuda').half()
+        estimator = EstimateAdj(adj, symmetric=False,
+                                device='cuda').to('cuda').half()
         self.estimator = estimator
         self.optimizer_adj = optim.SGD(estimator.parameters(),
-                              momentum=0.9, lr=lr)   # 0.005
+                                       momentum=0.9, lr=lr)   # 0.005
 
         self.optimizer_l1 = PGD(estimator.parameters(),
-                        proxs=[prox_operators.prox_l1],
-                        lr=lr, alphas=[5e-4])  # 5e-4
+                                proxs=[prox_operators.prox_l1],
+                                lr=lr, alphas=[5e-4])  # 5e-4
         self.optimizer_nuclear = PGD(estimator.parameters(),
-                  proxs=[prox_operators.prox_nuclear],
-                  lr=lr, alphas=[1.5])
+                                     proxs=[prox_operators.prox_nuclear],
+                                     lr=lr, alphas=[1.5])
 
     def reset_parameters(self):
         pass
@@ -166,7 +183,7 @@ class Adj_renew(nn.Module):
         D = torch.diag(r_inv)
         L = D - adj
 
-        r_inv = r_inv  + 1e-3
+        r_inv = r_inv + 1e-3
         r_inv = r_inv.pow(-1/2).flatten()
         r_inv[torch.isinf(r_inv)] = 0.
         r_mat_inv = torch.diag(r_inv)
@@ -175,7 +192,6 @@ class Adj_renew(nn.Module):
         XLXT = torch.matmul(torch.matmul(X.t(), L), X)
         loss_smooth_feat = torch.trace(XLXT)
         return loss_smooth_feat
-
 
     def train_adj(self, features, adj, adv_loss, epoch, lr):
         for param_group in self.optimizer_adj.param_groups:
@@ -194,8 +210,9 @@ class Adj_renew(nn.Module):
         self.optimizer_l1.step()
 
         estimator.estimated_adj.data.copy_(torch.clamp(
-                  estimator.estimated_adj.data, min=0, max=1))
-        estimator.estimated_adj.data.copy_((estimator.estimated_adj.data + estimator.estimated_adj.data.transpose(0, 1)) / 2)
+            estimator.estimated_adj.data, min=0, max=1))
+        estimator.estimated_adj.data.copy_(
+            (estimator.estimated_adj.data + estimator.estimated_adj.data.transpose(0, 1)) / 2)
 
         return estimator.estimated_adj
 
